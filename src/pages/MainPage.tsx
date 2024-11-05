@@ -1,39 +1,21 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Card } from "../interface";
 import "./MainPage.css";
-import { faPenToSquare } from "@fortawesome/free-regular-svg-icons";
+import { faFilePdf, faPenToSquare } from "@fortawesome/free-regular-svg-icons";
 import { NavLink } from "react-router-dom";
 export const MainPage = () => {
   const cards: Card[] = [
     {
-      description: "Descripcion 2",
-      icon: <FontAwesomeIcon style={{ fontSize: 50 }} icon={faPenToSquare} />,
-      subtitle: "",
-      title: "Titulo 1",
+      description: "Crea plantillas de certificados con un diseño personalizado",
+      icon: <FontAwesomeIcon style={{ fontSize: 40 }} icon={faPenToSquare} />,
+      title: "Crear plantilla de certificado",
+      to:"template"
     },
     {
-      description: "Descripcion 2",
-      icon: <FontAwesomeIcon style={{ fontSize: 50 }} icon={faPenToSquare} />,
-      subtitle: "",
-      title: "Titulo 1",
-    },
-    {
-      description: "Descripcion 2",
-      icon: <FontAwesomeIcon style={{ fontSize: 50 }} icon={faPenToSquare} />,
-      subtitle: "",
-      title: "Titulo 1",
-    },
-    {
-      description: "Descripcion 2",
-      icon: <FontAwesomeIcon style={{ fontSize: 50 }} icon={faPenToSquare} />,
-      subtitle: "",
-      title: "Titulo 1",
-    },
-    {
-      description: "Descripcion 2",
-      icon: <FontAwesomeIcon style={{ fontSize: 50 }} icon={faPenToSquare} />,
-      subtitle: "",
-      title: "Titulo 1",
+      description: "Genera certificados a partir de un archivo",
+      icon: <FontAwesomeIcon style={{ fontSize: 40 }} icon={faFilePdf} />,
+      title: "A partir de un archivo",
+      to:"pdf"
     },
   ];
   return (
@@ -50,11 +32,11 @@ export const MainPage = () => {
           {cards.map((card, index) => (
             <div className="col-12 col-md-4 col-lg-3 my-2" key={index}>
               <NavLink
-                to=""
-                className="border rounded d-flex flex-column align-items-start p-2 grid-item nav-link active"
+                to={card.to}
+                className="border rounded d-flex flex-column align-items-start p-4 grid-item nav-link active"
               >
                 {card.icon}
-                <span className="fs-4 fw-bold">{card.title}</span>
+                <span className="fs-6  mt-2 fw-bold">{card.title}</span>
                 <span className="text-muted">{card.description}</span>
               </NavLink>
             </div>

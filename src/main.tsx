@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { MainPage } from "./pages";
+import { MainPage, PDFPage } from "./pages";
 
 const router = createBrowserRouter([
   {
@@ -15,6 +15,10 @@ const router = createBrowserRouter([
       }
     ]
   },
+  {
+    path:"pdf",
+    element:<PDFPage/>
+  }
 ]);
 
 createRoot(document.getElementById("root")!).render(
