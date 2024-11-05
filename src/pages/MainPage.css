@@ -1,0 +1,8 @@
+.grid-item {
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.grid-item:hover {
+  background-color: #e2e6ea;
+}
