@@ -4,8 +4,8 @@ import App from "./App.tsx";
 import "./index.css";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { MainPage, PDFPage } from "./pages";
-import { PrimeReactProvider } from "primereact/api";
-import "primereact/resources/themes/lara-light-cyan/theme.css";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 const router = createBrowserRouter([
   {
@@ -21,8 +21,6 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <PrimeReactProvider >
-      <RouterProvider router={router} />
-    </PrimeReactProvider>
+    <RouterProvider router={router} />
   </StrictMode>
 );
