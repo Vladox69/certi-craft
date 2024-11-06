@@ -2,12 +2,30 @@ import { ChangeEvent, useState } from "react";
 import "./PDFPage.css";
 import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from "pdfjs-dist";
 import { PDFDocument, rgb } from "pdf-lib";
-import { Button } from "@mui/material";
+import {
+  Box,
+  Button,
+  Container,
+  Step,
+  StepContent,
+  StepLabel,
+  Stepper,
+} from "@mui/material";
 GlobalWorkerOptions.workerSrc =
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs";
 
 export const PDFPage = () => {
   const [file, setFile] = useState<File>();
+  const [activeStep, setActiveStep] = useState(0);
+  const [pdfUrl, setPdfUrl] = useState("");
+
+  const handleNext = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  };
   const onFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const target = event.target;
     if (target.files && target.files.length == 0) return;
@@ -51,20 +69,60 @@ export const PDFPage = () => {
     });
     const pdfBytes = await pdfLibDoc.save();
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    window.open(url);
+    const url = URL.createObjectURL(blob)
+    setPdfUrl(url)
   };
   return (
-    <div>
-      <input
-        type="file"
-        className="m-2"
-        onChange={onFileInputChange}
-        accept=".pdf"
-      />
-      <Button variant="contained" color="error" onClick={loadPDF} >
-        Cargar
-      </Button>
-    </div>
+    <Container>
+      <Stepper activeStep={activeStep} orientation="vertical">
+        {/* Primer paso carga de archivo */}
+        <Step key={1}>
+          <StepLabel>Cargar archivo</StepLabel>
+          <StepContent>
+            <Box>
+              <input
+                type="file"
+                className="m-2"
+                onChange={onFileInputChange}
+                accept=".pdf"
+              />
+              <Button variant="contained" color="error" onClick={loadPDF}>
+                Cargar
+              </Button>
+            </Box>
+            <Box>
+              <Button variant="contained" onClick={handleNext} >
+                Siguiente
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
+        <Step key={2}>
+          <StepLabel>Textos encontrados</StepLabel>
+          <StepContent>
+            <Box>
+            <iframe src={pdfUrl} width="100%" height="600px" title="PDF Viewer" />
+            </Box>
+            <Box>
+              <Button variant="contained" onClick={handleNext} >
+                Siguiente
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
+        <Step key={3}>
+          <StepLabel>Selección de textos para sustituir</StepLabel>
+          <StepContent>
+            <Box>
+            </Box>
+            <Box>
+              <Button variant="contained" onClick={handleNext} >
+                Siguiente
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
+      </Stepper>
+    </Container>
   );
 };
