@@ -2,6 +2,7 @@ import { ChangeEvent, useState } from "react";
 import "./PDFPage.css";
 import { getDocument,GlobalWorkerOptions, PDFDocumentProxy } from "pdfjs-dist";
 import { PDFDocument, rgb } from "pdf-lib";
+import { Button } from "primereact/button";
 GlobalWorkerOptions.workerSrc="../../node_modules/pdfjs-dist/build/pdf.worker.mjs"
 
 export const PDFPage = () => {
@@ -66,6 +67,7 @@ export const PDFPage = () => {
       <button className="btn btn-danger" onClick={loadPDF}>
         Cargar
       </button>
+      <Button label="Check" icon="pi pi-check" />
     </div>
   );
 };
