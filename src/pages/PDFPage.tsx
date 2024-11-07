@@ -5,19 +5,42 @@ import { PDFDocument, rgb } from "pdf-lib";
 import {
   Box,
   Button,
+  Checkbox,
   Container,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   Step,
   StepContent,
   StepLabel,
   Stepper,
 } from "@mui/material";
+import { v4 as uuidv4 } from 'uuid';
 GlobalWorkerOptions.workerSrc =
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs";
+
+interface Font{
+  name:string;
+  size:number;
+}
+
+interface ItemText{
+  id?:string;
+  text:string;
+  width:number;
+  height:number;
+  x:number;
+  y:number;
+  font:Font;
+}
 
 export const PDFPage = () => {
   const [file, setFile] = useState<File>();
   const [activeStep, setActiveStep] = useState(0);
   const [pdfUrl, setPdfUrl] = useState("");
+  const [items, setItems] = useState<ItemText[]>([]);
 
   const handleNext = () => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
@@ -38,21 +61,11 @@ export const PDFPage = () => {
     return content;
   };
 
-  const loadPDF = async () => {
-    const loadingTask = getDocument(URL.createObjectURL(file!));
-    const pdfjsDoc = await loadingTask.promise;
+  const underlineText = async (pageContent: unknown) => {
     const pdfLibDoc = await PDFDocument.load(await file!.arrayBuffer());
-
-    const numPages = pdfjsDoc._pdfInfo.numPages;
-
-    const pageContentPromise: Promise<unknown>[] = [];
-    for (let index = 0; index < numPages; index++) {
-      pageContentPromise.push(getContentPage(pdfjsDoc, index + 1));
-    }
-    const pageContent = await Promise.all(pageContentPromise);
-
     pageContent.map((page, index) => {
       const pdfLibPage = pdfLibDoc.getPage(index);
+      buildText(page)
       page.items.map((item) => {
         const { str, width, height, transform } = item;
         const x = transform[4];
@@ -69,8 +82,44 @@ export const PDFPage = () => {
     });
     const pdfBytes = await pdfLibDoc.save();
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob)
-    setPdfUrl(url)
+    const url = URL.createObjectURL(blob);
+    setPdfUrl(url);
+  };
+
+  const buildText=(page:unknown)=>{
+    const {items,styles}=page;
+    items.map((item)=>{
+      const fontProps=styles[item.fontName]
+      const newItem:ItemText={
+        id:uuidv4(),
+        text:item.str,
+        width:item.width,
+        height:item.height,
+        x:item.transform[4],
+        y:item.transform[5],
+        font:{
+          name:fontProps.fontFamily,
+          size:Math.abs(item.transform[3])
+        }
+      }
+      if(item.str!=""){
+        setItems(prevItems=>[...prevItems,newItem])
+      }
+    })
+  }
+
+  const loadPDF = async () => {
+    const loadingTask = getDocument(URL.createObjectURL(file!));
+    const pdfjsDoc = await loadingTask.promise;
+
+    const numPages = pdfjsDoc._pdfInfo.numPages;
+
+    const pageContentPromise: Promise<unknown>[] = [];
+    for (let index = 0; index < numPages; index++) {
+      pageContentPromise.push(getContentPage(pdfjsDoc, index + 1));
+    }
+    const pageContent = await Promise.all(pageContentPromise);
+    underlineText(pageContent)
   };
   return (
     <Container>
@@ -91,7 +140,7 @@ export const PDFPage = () => {
               </Button>
             </Box>
             <Box>
-              <Button variant="contained" onClick={handleNext} >
+              <Button variant="contained" onClick={handleNext}>
                 Siguiente
               </Button>
             </Box>
@@ -101,10 +150,15 @@ export const PDFPage = () => {
           <StepLabel>Textos encontrados</StepLabel>
           <StepContent>
             <Box>
-            <iframe src={pdfUrl} width="100%" height="600px" title="PDF Viewer" />
+              <iframe
+                src={pdfUrl}
+                width="100%"
+                height="600px"
+                title="PDF Viewer"
+              />
             </Box>
             <Box>
-              <Button variant="contained" onClick={handleNext} >
+              <Button variant="contained" onClick={handleNext}>
                 Siguiente
               </Button>
             </Box>
@@ -114,10 +168,36 @@ export const PDFPage = () => {
           <StepLabel>Selección de textos para sustituir</StepLabel>
           <StepContent>
             <Box>
+              <List>
+                {items.map((item)=>{
+                  const labelId = `checkbox-list-label-${item.id}`;
+                  return(
+                    <ListItem
+                    key={item.id}
+                    role={undefined}
+                    >
+                      <ListItemButton>
+                        <ListItemIcon>
+                          <Checkbox
+                          edge="start"
+                          tabIndex={-1}
+                          disableRipple
+                          inputProps={{'aria-labelledby': labelId}}
+                          />
+                        </ListItemIcon>
+                        <ListItemText id={labelId} primary={`${item.text}`} />
+                      </ListItemButton>
+                    </ListItem>
+                  )
+                })}
+              </List>
             </Box>
             <Box>
-              <Button variant="contained" onClick={handleNext} >
+              <Button variant="contained" onClick={handleNext}>
                 Siguiente
+              </Button>
+              <Button variant="contained" onClick={handleBack}>
+                Atras
               </Button>
             </Box>
           </StepContent>
