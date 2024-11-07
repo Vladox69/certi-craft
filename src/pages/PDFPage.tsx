@@ -16,24 +16,26 @@ import {
   StepContent,
   StepLabel,
   Stepper,
+  TextField,
 } from "@mui/material";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 GlobalWorkerOptions.workerSrc =
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs";
 
-interface Font{
-  name:string;
-  size:number;
+interface Font {
+  name: string;
+  size: number;
 }
 
-interface ItemText{
-  id?:string;
-  text:string;
-  width:number;
-  height:number;
-  x:number;
-  y:number;
-  font:Font;
+interface ItemText {
+  id?: string;
+  text: string;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  font: Font;
+  field:string;
 }
 
 export const PDFPage = () => {
@@ -41,6 +43,40 @@ export const PDFPage = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [pdfUrl, setPdfUrl] = useState("");
   const [items, setItems] = useState<ItemText[]>([]);
+  const [itemsSelected, setItemsSelected] = useState<ItemText[]>([])
+  const [selectedItems, setSelectedItems] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [textFieldValues, setTextFieldValues] = useState<{
+    [key: string]: string;
+  }>({});
+
+  const handleCheckboxChange = (id: string) => {
+    setSelectedItems((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const handleTextFieldChange = (id: string, value: string) => {
+    setTextFieldValues((prev) => ({
+      ...prev,
+      [id]: value,
+    }));
+  };
+
+  const handleAccept = () => {
+    const updatedItems:ItemText[] = items.map((item) => {
+      if (selectedItems[item.id!]) { // Si el checkbox está seleccionado
+        return {
+          ...item,
+          field: textFieldValues[item.id!] || "", // Actualiza `field` con el valor del `TextField`
+        };
+      }
+      return item;
+    });
+    setItemsSelected(updatedItems)
+  };
 
   const handleNext = () => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
@@ -65,7 +101,7 @@ export const PDFPage = () => {
     const pdfLibDoc = await PDFDocument.load(await file!.arrayBuffer());
     pageContent.map((page, index) => {
       const pdfLibPage = pdfLibDoc.getPage(index);
-      buildText(page)
+      buildText(page);
       page.items.map((item) => {
         const { str, width, height, transform } = item;
         const x = transform[4];
@@ -86,27 +122,28 @@ export const PDFPage = () => {
     setPdfUrl(url);
   };
 
-  const buildText=(page:unknown)=>{
-    const {items,styles}=page;
-    items.map((item)=>{
-      const fontProps=styles[item.fontName]
-      const newItem:ItemText={
-        id:uuidv4(),
-        text:item.str,
-        width:item.width,
-        height:item.height,
-        x:item.transform[4],
-        y:item.transform[5],
-        font:{
-          name:fontProps.fontFamily,
-          size:Math.abs(item.transform[3])
-        }
+  const buildText = (page: unknown) => {
+    const { items, styles } = page;
+    items.map((item) => {
+      const fontProps = styles[item.fontName];
+      const newItem: ItemText = {
+        id: uuidv4(),
+        text: item.str,
+        width: item.width,
+        height: item.height,
+        x: item.transform[4],
+        y: item.transform[5],
+        font: {
+          name: fontProps.fontFamily,
+          size: Math.abs(item.transform[3]),
+        },
+        field:""
+      };
+      if (item.str != "") {
+        setItems((prevItems) => [...prevItems, newItem]);
       }
-      if(item.str!=""){
-        setItems(prevItems=>[...prevItems,newItem])
-      }
-    })
-  }
+    });
+  };
 
   const loadPDF = async () => {
     const loadingTask = getDocument(URL.createObjectURL(file!));
@@ -119,7 +156,7 @@ export const PDFPage = () => {
       pageContentPromise.push(getContentPage(pdfjsDoc, index + 1));
     }
     const pageContent = await Promise.all(pageContentPromise);
-    underlineText(pageContent)
+    underlineText(pageContent);
   };
   return (
     <Container>
@@ -169,26 +206,45 @@ export const PDFPage = () => {
           <StepContent>
             <Box>
               <List>
-                {items.map((item)=>{
+                {items.map((item) => {
                   const labelId = `checkbox-list-label-${item.id}`;
-                  return(
+                  return (
                     <ListItem
-                    key={item.id}
-                    role={undefined}
+                      key={item.id}
+                      role={undefined}
+                      // secondaryAction={
+                      //   <TextField
+                      //     id="outlined-basic"
+                      //     label="Campo"
+                      //     variant="outlined"
+                      //   />
+                      // }
+                      // disablePadding
                     >
                       <ListItemButton>
                         <ListItemIcon>
                           <Checkbox
-                          edge="start"
-                          tabIndex={-1}
-                          disableRipple
-                          inputProps={{'aria-labelledby': labelId}}
+                            edge="start"
+                            checked={!!selectedItems[item.id!]}
+                            tabIndex={-1}
+                            disableRipple
+                            inputProps={{ "aria-labelledby": labelId }}
+                            onChange={() => handleCheckboxChange(item.id!)}
                           />
                         </ListItemIcon>
                         <ListItemText id={labelId} primary={`${item.text}`} />
+                        <TextField
+                          id="outlined-basic"
+                          label="Campo"
+                          variant="outlined"
+                          value={textFieldValues[item.id!] || ""}
+                          onChange={(e) =>
+                            handleTextFieldChange(item.id!, e.target.value)
+                          }
+                        />
                       </ListItemButton>
                     </ListItem>
-                  )
+                  );
                 })}
               </List>
             </Box>
@@ -198,6 +254,9 @@ export const PDFPage = () => {
               </Button>
               <Button variant="contained" onClick={handleBack}>
                 Atras
+              </Button>
+              <Button variant="contained" onClick={handleAccept}>
+                Aceptar
               </Button>
             </Box>
           </StepContent>
