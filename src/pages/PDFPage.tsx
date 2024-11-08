@@ -1,4 +1,4 @@
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, FC, useState } from "react";
 import "./PDFPage.css";
 import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from "pdfjs-dist";
 import { PDFDocument, rgb } from "pdf-lib";
@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Collapse,
   Container,
   List,
   ListItem,
@@ -19,6 +20,13 @@ import {
   TextField,
 } from "@mui/material";
 import { v4 as uuidv4 } from "uuid";
+import * as XLSX from "xlsx";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCaretSquareDown,
+  faCaretSquareUp,
+  faCircleDown,
+} from "@fortawesome/free-regular-svg-icons";
 GlobalWorkerOptions.workerSrc =
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs";
 
@@ -35,15 +43,63 @@ interface ItemText {
   x: number;
   y: number;
   font: Font;
-  field:string;
+  field: string;
 }
 
+interface ItemData {
+  [key: string]: unknown[];
+}
+
+interface CustomListItemProps {
+  keyProps: string;
+  data: unknown[];
+}
+
+const CustomListItem: FC<CustomListItemProps> = ({ keyProps, data }) => {
+  const [open, setOpen] = useState(true);
+
+  const handleClick = () => {
+    setOpen(!open);
+  };
+  return (
+    <>
+      <ListItem>
+        <ListItemButton onClick={handleClick}>
+          <ListItemIcon>
+            <Checkbox
+              edge="start"
+              tabIndex={-1}
+              disableRipple
+              inputProps={{ "aria-labelledby": keyProps }}
+            />
+          </ListItemIcon>
+          <ListItemText id={keyProps} primary={`${keyProps}`} />
+          {open ? <span>-</span> : <span>+</span>}
+        </ListItemButton>
+      </ListItem>
+      <Collapse in={open} timeout="auto" unmountOnExit>
+        <List component="div" disablePadding>
+          {data.map((value, index) => (
+            <ListItem key={index}>
+              <ListItemButton>
+                <ListItemText id={`${index}`} primary={`${value}`} />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Collapse>
+    </>
+  );
+};
+
 export const PDFPage = () => {
-  const [file, setFile] = useState<File>();
+  const [filePDF, setFilePDF] = useState<File>();
+  const [fileExcel, setFileExcel] = useState<File>();
   const [activeStep, setActiveStep] = useState(0);
   const [pdfUrl, setPdfUrl] = useState("");
   const [items, setItems] = useState<ItemText[]>([]);
-  const [itemsSelected, setItemsSelected] = useState<ItemText[]>([])
+  const [itemsSelected, setItemsSelected] = useState<ItemText[]>([]);
+  const [itemData, setItemData] = useState<ItemData>();
   const [selectedItems, setSelectedItems] = useState<{
     [key: string]: boolean;
   }>({});
@@ -66,16 +122,17 @@ export const PDFPage = () => {
   };
 
   const handleAccept = () => {
-    const updatedItems:ItemText[] = items.map((item) => {
-      if (selectedItems[item.id!]) { // Si el checkbox está seleccionado
+    const updatedItems: ItemText[] = items.map((item) => {
+      if (selectedItems[item.id!]) {
         return {
           ...item,
-          field: textFieldValues[item.id!] || "", // Actualiza `field` con el valor del `TextField`
+          field: textFieldValues[item.id!] || "",
         };
       }
       return item;
     });
-    setItemsSelected(updatedItems)
+    setItemsSelected(updatedItems);
+    handleNext();
   };
 
   const handleNext = () => {
@@ -85,10 +142,17 @@ export const PDFPage = () => {
   const handleBack = () => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
-  const onFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+
+  const onFileInputChangeExcel = (event: ChangeEvent<HTMLInputElement>) => {
     const target = event.target;
     if (target.files && target.files.length == 0) return;
-    setFile(target.files?.[0]);
+    setFileExcel(target.files?.[0]);
+  };
+
+  const onFileInputChangePDF = (event: ChangeEvent<HTMLInputElement>) => {
+    const target = event.target;
+    if (target.files && target.files.length == 0) return;
+    setFilePDF(target.files?.[0]);
   };
 
   const getContentPage = async (doc: PDFDocumentProxy, index: number) => {
@@ -98,7 +162,7 @@ export const PDFPage = () => {
   };
 
   const underlineText = async (pageContent: unknown) => {
-    const pdfLibDoc = await PDFDocument.load(await file!.arrayBuffer());
+    const pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
     pageContent.map((page, index) => {
       const pdfLibPage = pdfLibDoc.getPage(index);
       buildText(page);
@@ -137,7 +201,7 @@ export const PDFPage = () => {
           name: fontProps.fontFamily,
           size: Math.abs(item.transform[3]),
         },
-        field:""
+        field: "",
       };
       if (item.str != "") {
         setItems((prevItems) => [...prevItems, newItem]);
@@ -145,8 +209,33 @@ export const PDFPage = () => {
     });
   };
 
+  const loadExcel = async () => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const arrayBuffer = e.target?.result;
+      if (arrayBuffer) {
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        const sheetName = workbook.SheetNames[0]; // Obtén el nombre de la primera hoja
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+          header: 1,
+        }) as Array<unknown>;
+
+        const [headers, ...dataRows] = jsonData;
+
+        const result: Record<string, unknown[]> = {};
+        headers.forEach((header: string, index: number) => {
+          result[header] = dataRows.map((row) => row[index]);
+        });
+        console.log(result);
+        setItemData(result);
+      }
+    };
+    reader.readAsArrayBuffer(fileExcel!);
+  };
+
   const loadPDF = async () => {
-    const loadingTask = getDocument(URL.createObjectURL(file!));
+    const loadingTask = getDocument(URL.createObjectURL(filePDF!));
     const pdfjsDoc = await loadingTask.promise;
 
     const numPages = pdfjsDoc._pdfInfo.numPages;
@@ -156,11 +245,53 @@ export const PDFPage = () => {
       pageContentPromise.push(getContentPage(pdfjsDoc, index + 1));
     }
     const pageContent = await Promise.all(pageContentPromise);
-    underlineText(pageContent);
+    await underlineText(pageContent);
   };
   return (
     <Container>
       <Stepper activeStep={activeStep} orientation="vertical">
+        <Step key={4}>
+          <StepLabel>Cargar archivo de datos</StepLabel>
+          <StepContent>
+            <Box>
+              <input
+                type="file"
+                className="m-2"
+                onChange={onFileInputChangeExcel}
+                accept=".xlsx"
+              />
+              <Button variant="contained" color="error" onClick={loadExcel}>
+                Cargar
+              </Button>
+            </Box>
+            <Box>
+              <Button variant="contained" onClick={handleNext}>
+                Siguiente
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
+        <Step key={5}>
+          <StepLabel>Selección de dato</StepLabel>
+          <StepContent>
+            <Box>
+              <List>
+                {itemData != null ? (
+                  Object.entries(itemData!).map(([key, values]) => (
+                    <CustomListItem key={key} keyProps={key} data={values} />
+                  ))
+                ) : (
+                  <></>
+                )}
+              </List>
+            </Box>
+            <Box>
+              <Button variant="contained" onClick={handleNext}>
+                Siguiente
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
         {/* Primer paso carga de archivo */}
         <Step key={1}>
           <StepLabel>Cargar archivo</StepLabel>
@@ -169,7 +300,7 @@ export const PDFPage = () => {
               <input
                 type="file"
                 className="m-2"
-                onChange={onFileInputChange}
+                onChange={onFileInputChangePDF}
                 accept=".pdf"
               />
               <Button variant="contained" color="error" onClick={loadPDF}>
@@ -183,6 +314,7 @@ export const PDFPage = () => {
             </Box>
           </StepContent>
         </Step>
+        {/* Segundo paso vista de textos encontrados */}
         <Step key={2}>
           <StepLabel>Textos encontrados</StepLabel>
           <StepContent>
@@ -201,6 +333,7 @@ export const PDFPage = () => {
             </Box>
           </StepContent>
         </Step>
+        {/* Tercer paso seleccion de textos a sustituir */}
         <Step key={3}>
           <StepLabel>Selección de textos para sustituir</StepLabel>
           <StepContent>
@@ -209,18 +342,7 @@ export const PDFPage = () => {
                 {items.map((item) => {
                   const labelId = `checkbox-list-label-${item.id}`;
                   return (
-                    <ListItem
-                      key={item.id}
-                      role={undefined}
-                      // secondaryAction={
-                      //   <TextField
-                      //     id="outlined-basic"
-                      //     label="Campo"
-                      //     variant="outlined"
-                      //   />
-                      // }
-                      // disablePadding
-                    >
+                    <ListItem key={item.id} role={undefined}>
                       <ListItemButton>
                         <ListItemIcon>
                           <Checkbox
@@ -249,18 +371,16 @@ export const PDFPage = () => {
               </List>
             </Box>
             <Box>
-              <Button variant="contained" onClick={handleNext}>
+              <Button variant="contained" onClick={handleAccept}>
                 Siguiente
               </Button>
               <Button variant="contained" onClick={handleBack}>
                 Atras
               </Button>
-              <Button variant="contained" onClick={handleAccept}>
-                Aceptar
-              </Button>
             </Box>
           </StepContent>
         </Step>
+        {/* Primer paso carga de archivo de datos*/}
       </Stepper>
     </Container>
   );
