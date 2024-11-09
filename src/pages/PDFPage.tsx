@@ -23,9 +23,8 @@ import { v4 as uuidv4 } from "uuid";
 import * as XLSX from "xlsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faCaretSquareDown,
-  faCaretSquareUp,
-  faCircleDown,
+  faMinusSquare,
+  faPlusSquare,
 } from "@fortawesome/free-regular-svg-icons";
 GlobalWorkerOptions.workerSrc =
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs";
@@ -50,31 +49,53 @@ interface ItemData {
   [key: string]: unknown[];
 }
 
+interface ItemCheck{
+  [key: string]: boolean;
+}
+
 interface CustomListItemProps {
   keyProps: string;
   data: unknown[];
+  sendData: (data: ItemCheck) => void;
 }
 
-const CustomListItem: FC<CustomListItemProps> = ({ keyProps, data }) => {
-  const [open, setOpen] = useState(true);
+const CustomListItem: FC<CustomListItemProps> = ({
+  keyProps,
+  data,
+  sendData,
+}) => {
+  const [open, setOpen] = useState(false);
 
   const handleClick = () => {
     setOpen(!open);
   };
+
+  const handleCheckboxChange=(event: React.ChangeEvent<HTMLInputElement>)=>{
+    const data:ItemCheck={
+      [keyProps]:event.target.checked
+    }
+    sendData(data)
+  }
+
   return (
     <>
       <ListItem>
-        <ListItemButton onClick={handleClick}>
+        <ListItemButton>
           <ListItemIcon>
             <Checkbox
               edge="start"
               tabIndex={-1}
               disableRipple
               inputProps={{ "aria-labelledby": keyProps }}
+              onChange={ handleCheckboxChange}
             />
           </ListItemIcon>
           <ListItemText id={keyProps} primary={`${keyProps}`} />
-          {open ? <span>-</span> : <span>+</span>}
+          {!open ? (
+            <FontAwesomeIcon icon={faPlusSquare} onClick={handleClick} />
+          ) : (
+            <FontAwesomeIcon icon={faMinusSquare} onClick={handleClick} />
+          )}
         </ListItemButton>
       </ListItem>
       <Collapse in={open} timeout="auto" unmountOnExit>
@@ -106,6 +127,22 @@ export const PDFPage = () => {
   const [textFieldValues, setTextFieldValues] = useState<{
     [key: string]: string;
   }>({});
+  const [itemListSelected, setItemListSelected] = useState<{
+    [key: string]: boolean;
+  }>({})
+
+
+  const handleAcceptDataCustom=()=>{
+    console.log(itemListSelected);
+  }
+
+  const handleDataFromCustomDialog = (data: ItemCheck) => {
+    const [[key, value]] = Object.entries(data);
+    setItemListSelected((prevState)=>({
+      ...prevState,
+      [key]:value
+    }))
+  };
 
   const handleCheckboxChange = (id: string) => {
     setSelectedItems((prev) => ({
@@ -227,7 +264,12 @@ export const PDFPage = () => {
         headers.forEach((header: string, index: number) => {
           result[header] = dataRows.map((row) => row[index]);
         });
-        console.log(result);
+        Object.keys(result).map((value:string)=>{
+          setItemListSelected((prevState)=>({
+            ...prevState,
+            [value]:false
+          }))
+        })
         setItemData(result);
       }
     };
@@ -278,7 +320,12 @@ export const PDFPage = () => {
               <List>
                 {itemData != null ? (
                   Object.entries(itemData!).map(([key, values]) => (
-                    <CustomListItem key={key} keyProps={key} data={values} />
+                    <CustomListItem
+                      key={key}
+                      keyProps={key}
+                      data={values}
+                      sendData={handleDataFromCustomDialog}
+                    />
                   ))
                 ) : (
                   <></>
@@ -289,9 +336,13 @@ export const PDFPage = () => {
               <Button variant="contained" onClick={handleNext}>
                 Siguiente
               </Button>
+              <Button variant="contained" onClick={handleAcceptDataCustom}>
+                Aceptar
+              </Button>
             </Box>
           </StepContent>
         </Step>
+        
         {/* Primer paso carga de archivo */}
         <Step key={1}>
           <StepLabel>Cargar archivo</StepLabel>
