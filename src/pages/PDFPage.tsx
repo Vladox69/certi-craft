@@ -8,11 +8,16 @@ import {
   Checkbox,
   Collapse,
   Container,
+  FormControl,
+  InputLabel,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  ListSubheader,
+  MenuItem,
+  Select,
   Step,
   StepContent,
   StepLabel,
@@ -43,39 +48,31 @@ interface ItemText {
   y: number;
   font: Font;
   field: string;
+  isSelect: boolean;
 }
 
 interface ItemData {
-  [key: string]: unknown[];
-}
-
-interface ItemCheck{
-  [key: string]: boolean;
+  id?: string;
+  field: string;
+  data: string[];
+  isSelect: boolean;
 }
 
 interface CustomListItemProps {
-  keyProps: string;
-  data: unknown[];
-  sendData: (data: ItemCheck) => void;
+  itemData: ItemData;
+  sendData: (id: string) => void;
 }
 
-const CustomListItem: FC<CustomListItemProps> = ({
-  keyProps,
-  data,
-  sendData,
-}) => {
+const CustomListItem: FC<CustomListItemProps> = ({ itemData, sendData }) => {
   const [open, setOpen] = useState(false);
 
   const handleClick = () => {
     setOpen(!open);
   };
 
-  const handleCheckboxChange=(event: React.ChangeEvent<HTMLInputElement>)=>{
-    const data:ItemCheck={
-      [keyProps]:event.target.checked
-    }
-    sendData(data)
-  }
+  const handleCheckboxChange = () => {
+    sendData(itemData.id!);
+  };
 
   return (
     <>
@@ -86,11 +83,11 @@ const CustomListItem: FC<CustomListItemProps> = ({
               edge="start"
               tabIndex={-1}
               disableRipple
-              inputProps={{ "aria-labelledby": keyProps }}
-              onChange={ handleCheckboxChange}
+              inputProps={{ "aria-labelledby": itemData.id }}
+              onChange={handleCheckboxChange}
             />
           </ListItemIcon>
-          <ListItemText id={keyProps} primary={`${keyProps}`} />
+          <ListItemText id={itemData.id} primary={`${itemData.field}`} />
           {!open ? (
             <FontAwesomeIcon icon={faPlusSquare} onClick={handleClick} />
           ) : (
@@ -100,7 +97,7 @@ const CustomListItem: FC<CustomListItemProps> = ({
       </ListItem>
       <Collapse in={open} timeout="auto" unmountOnExit>
         <List component="div" disablePadding>
-          {data.map((value, index) => (
+          {itemData.data.map((value, index) => (
             <ListItem key={index}>
               <ListItemButton>
                 <ListItemText id={`${index}`} primary={`${value}`} />
@@ -118,57 +115,54 @@ export const PDFPage = () => {
   const [fileExcel, setFileExcel] = useState<File>();
   const [activeStep, setActiveStep] = useState(0);
   const [pdfUrl, setPdfUrl] = useState("");
-  const [items, setItems] = useState<ItemText[]>([]);
-  const [itemsSelected, setItemsSelected] = useState<ItemText[]>([]);
-  const [itemData, setItemData] = useState<ItemData>();
-  const [selectedItems, setSelectedItems] = useState<{
-    [key: string]: boolean;
-  }>({});
-  const [textFieldValues, setTextFieldValues] = useState<{
-    [key: string]: string;
-  }>({});
-  const [itemListSelected, setItemListSelected] = useState<{
-    [key: string]: boolean;
-  }>({})
+  const [itemsText, setItemsText] = useState<ItemText[]>([]);
+  const [itemsTextSelected, setItemsTextSelected] = useState<ItemText[]>([]);
+  const [itemData, setItemData] = useState<ItemData[]>([]);
+  const [itemDataSelected, setItemDataSelected] = useState<ItemData[]>([]);
 
+  const handleAcceptData = () => {
+    let updateItems: ItemData[] = [];
+    itemData.map((item) => {
+      if (item.isSelect) {
+        updateItems = [...updateItems, item];
+      }
+    });
+    setItemDataSelected(updateItems)
+    handleNext()
+  };
 
-  const handleAcceptDataCustom=()=>{
-    console.log(itemListSelected);
-  }
-
-  const handleDataFromCustomDialog = (data: ItemCheck) => {
-    const [[key, value]] = Object.entries(data);
-    setItemListSelected((prevState)=>({
-      ...prevState,
-      [key]:value
-    }))
+  const handleDataFromCustomComponent = (id: string) => {
+    setItemData((prevData) =>
+      prevData.map((item) =>
+        item.id === id ? { ...item, isSelect: !item.isSelect } : item
+      )
+    );
   };
 
   const handleCheckboxChange = (id: string) => {
-    setSelectedItems((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setItemsText((prevItems) =>
+      prevItems.map((item) =>
+        item.id === id ? { ...item, isSelect: !item.isSelect } : item
+      )
+    );
   };
 
   const handleTextFieldChange = (id: string, value: string) => {
-    setTextFieldValues((prev) => ({
-      ...prev,
-      [id]: value,
-    }));
+    setItemsText((prevItems) =>
+      prevItems.map((item) =>
+        item.id === id ? { ...item, field: value } : item
+      )
+    );
   };
 
-  const handleAccept = () => {
-    const updatedItems: ItemText[] = items.map((item) => {
-      if (selectedItems[item.id!]) {
-        return {
-          ...item,
-          field: textFieldValues[item.id!] || "",
-        };
+  const handleAcceptText = () => {
+    let updateItems: ItemText[] = [];
+    itemsText.map((item) => {
+      if (item.isSelect) {
+        updateItems = [...updateItems, item];
       }
-      return item;
     });
-    setItemsSelected(updatedItems);
+    setItemsTextSelected(updateItems);
     handleNext();
   };
 
@@ -239,9 +233,10 @@ export const PDFPage = () => {
           size: Math.abs(item.transform[3]),
         },
         field: "",
+        isSelect: false,
       };
       if (item.str != "") {
-        setItems((prevItems) => [...prevItems, newItem]);
+        setItemsText((prevItems) => [...prevItems, newItem]);
       }
     });
   };
@@ -257,20 +252,17 @@ export const PDFPage = () => {
         const jsonData = XLSX.utils.sheet_to_json(worksheet, {
           header: 1,
         }) as Array<unknown>;
-
         const [headers, ...dataRows] = jsonData;
-
-        const result: Record<string, unknown[]> = {};
+        const result: Record<string, string[]> = {};
         headers.forEach((header: string, index: number) => {
           result[header] = dataRows.map((row) => row[index]);
         });
-        Object.keys(result).map((value:string)=>{
-          setItemListSelected((prevState)=>({
-            ...prevState,
-            [value]:false
-          }))
-        })
-        setItemData(result);
+        Object.entries(result).map(([key, values]) => {
+          setItemData((prevData) => [
+            ...prevData,
+            { id: uuidv4(), data: values, field: key, isSelect: false },
+          ]);
+        });
       }
     };
     reader.readAsArrayBuffer(fileExcel!);
@@ -292,57 +284,6 @@ export const PDFPage = () => {
   return (
     <Container>
       <Stepper activeStep={activeStep} orientation="vertical">
-        <Step key={4}>
-          <StepLabel>Cargar archivo de datos</StepLabel>
-          <StepContent>
-            <Box>
-              <input
-                type="file"
-                className="m-2"
-                onChange={onFileInputChangeExcel}
-                accept=".xlsx"
-              />
-              <Button variant="contained" color="error" onClick={loadExcel}>
-                Cargar
-              </Button>
-            </Box>
-            <Box>
-              <Button variant="contained" onClick={handleNext}>
-                Siguiente
-              </Button>
-            </Box>
-          </StepContent>
-        </Step>
-        <Step key={5}>
-          <StepLabel>Selección de dato</StepLabel>
-          <StepContent>
-            <Box>
-              <List>
-                {itemData != null ? (
-                  Object.entries(itemData!).map(([key, values]) => (
-                    <CustomListItem
-                      key={key}
-                      keyProps={key}
-                      data={values}
-                      sendData={handleDataFromCustomDialog}
-                    />
-                  ))
-                ) : (
-                  <></>
-                )}
-              </List>
-            </Box>
-            <Box>
-              <Button variant="contained" onClick={handleNext}>
-                Siguiente
-              </Button>
-              <Button variant="contained" onClick={handleAcceptDataCustom}>
-                Aceptar
-              </Button>
-            </Box>
-          </StepContent>
-        </Step>
-        
         {/* Primer paso carga de archivo */}
         <Step key={1}>
           <StepLabel>Cargar archivo</StepLabel>
@@ -390,7 +331,7 @@ export const PDFPage = () => {
           <StepContent>
             <Box>
               <List>
-                {items.map((item) => {
+                {itemsText.map((item) => {
                   const labelId = `checkbox-list-label-${item.id}`;
                   return (
                     <ListItem key={item.id} role={undefined}>
@@ -398,7 +339,7 @@ export const PDFPage = () => {
                         <ListItemIcon>
                           <Checkbox
                             edge="start"
-                            checked={!!selectedItems[item.id!]}
+                            checked={!!item.isSelect}
                             tabIndex={-1}
                             disableRipple
                             inputProps={{ "aria-labelledby": labelId }}
@@ -410,7 +351,7 @@ export const PDFPage = () => {
                           id="outlined-basic"
                           label="Campo"
                           variant="outlined"
-                          value={textFieldValues[item.id!] || ""}
+                          value={item.field || ""}
                           onChange={(e) =>
                             handleTextFieldChange(item.id!, e.target.value)
                           }
@@ -422,7 +363,7 @@ export const PDFPage = () => {
               </List>
             </Box>
             <Box>
-              <Button variant="contained" onClick={handleAccept}>
+              <Button variant="contained" onClick={handleAcceptText}>
                 Siguiente
               </Button>
               <Button variant="contained" onClick={handleBack}>
@@ -432,6 +373,90 @@ export const PDFPage = () => {
           </StepContent>
         </Step>
         {/* Primer paso carga de archivo de datos*/}
+        <Step key={4} >
+          <StepLabel>Cargar archivo de datos</StepLabel>
+          <StepContent>
+            <Box>
+              <input
+                type="file"
+                className="m-2"
+                onChange={onFileInputChangeExcel}
+                accept=".xlsx"
+              />
+              <Button variant="contained" color="error" onClick={loadExcel}>
+                Cargar
+              </Button>
+            </Box>
+            <Box>
+              <Button variant="contained" onClick={handleNext}>
+                Siguiente
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
+        <Step key={5}>
+          <StepLabel>Selección de dato</StepLabel>
+          <StepContent>
+            <Box>
+              <List>
+                {itemData.map((item) => (
+                  <CustomListItem
+                    key={item.id}
+                    itemData={item}
+                    sendData={handleDataFromCustomComponent}
+                  />
+                ))}
+              </List>
+            </Box>
+            <Box>
+              <Button variant="contained" onClick={handleAcceptData}>
+                Siguiente
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
+        <Step key={6}>
+          <StepLabel>Emparejamiento de campos</StepLabel>
+          <StepContent>
+            <Box>
+              <List
+                subheader={
+                  <ListSubheader component="div" id="nested-list-subheader">
+                    Campos a cambiar
+                  </ListSubheader>
+                }
+              >
+                {itemsTextSelected.map((item) => {
+                  const labelId = `checkbox-list-label-${item.id}`;
+                  return (
+                    <ListItem key={item.id} role={undefined}>
+                      <ListItemText id={labelId} primary={`${item.text}`} />
+                      <FormControl fullWidth>
+                        <InputLabel id="demo-simple-select-label">
+                          Campo de datos
+                        </InputLabel>
+                        <Select
+                          labelId="demo-simple-select-label"
+                          id="demo-simple-select"
+                          label="Campo de datos"
+                        >
+                          {itemDataSelected.map((item) => (
+                            <MenuItem value={item.id}>{item.field}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Box>
+            <Box>
+              <Button variant="contained" onClick={handleNext}>
+                Siguiente
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
       </Stepper>
     </Container>
   );
