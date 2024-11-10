@@ -31,8 +31,10 @@ import {
   faMinusSquare,
   faPlusSquare,
 } from "@fortawesome/free-regular-svg-icons";
+import { TextContent, TextItem } from "pdfjs-dist/types/src/display/api";
 GlobalWorkerOptions.workerSrc =
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs";
+type ExcelRow = Record<string, string>;
 
 interface Font {
   name: string;
@@ -127,8 +129,8 @@ export const PDFPage = () => {
         updateItems = [...updateItems, item];
       }
     });
-    setItemDataSelected(updateItems)
-    handleNext()
+    setItemDataSelected(updateItems);
+    handleNext();
   };
 
   const handleDataFromCustomComponent = (id: string) => {
@@ -186,19 +188,22 @@ export const PDFPage = () => {
     setFilePDF(target.files?.[0]);
   };
 
-  const getContentPage = async (doc: PDFDocumentProxy, index: number) => {
+  const getContentPage = async (
+    doc: PDFDocumentProxy,
+    index: number
+  ): Promise<TextContent> => {
     const page = await doc.getPage(index);
     const content = await page.getTextContent();
     return content;
   };
 
-  const underlineText = async (pageContent: unknown) => {
+  const underlineText = async (pageContent: TextContent[]) => {
     const pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
     pageContent.map((page, index) => {
       const pdfLibPage = pdfLibDoc.getPage(index);
       buildText(page);
       page.items.map((item) => {
-        const { str, width, height, transform } = item;
+        const { width, height, transform } = item as TextItem;
         const x = transform[4];
         const y = transform[5];
         pdfLibPage.drawRectangle({
@@ -217,25 +222,26 @@ export const PDFPage = () => {
     setPdfUrl(url);
   };
 
-  const buildText = (page: unknown) => {
+  const buildText = (page: TextContent) => {
     const { items, styles } = page;
     items.map((item) => {
-      const fontProps = styles[item.fontName];
+      const itemText = item as TextItem;
+      const fontProps = styles[itemText.fontName];
       const newItem: ItemText = {
         id: uuidv4(),
-        text: item.str,
-        width: item.width,
-        height: item.height,
-        x: item.transform[4],
-        y: item.transform[5],
+        text: itemText.str,
+        width: itemText.width,
+        height: itemText.height,
+        x: itemText.transform[4],
+        y: itemText.transform[5],
         font: {
           name: fontProps.fontFamily,
-          size: Math.abs(item.transform[3]),
+          size: Math.abs(itemText.transform[3]),
         },
         field: "",
         isSelect: false,
       };
-      if (item.str != "") {
+      if (itemText.str != "") {
         setItemsText((prevItems) => [...prevItems, newItem]);
       }
     });
@@ -247,21 +253,31 @@ export const PDFPage = () => {
       const arrayBuffer = e.target?.result;
       if (arrayBuffer) {
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
-        const sheetName = workbook.SheetNames[0]; // Obtén el nombre de la primera hoja
+        const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-          header: 1,
-        }) as Array<unknown>;
-        const [headers, ...dataRows] = jsonData;
-        const result: Record<string, string[]> = {};
-        headers.forEach((header: string, index: number) => {
-          result[header] = dataRows.map((row) => row[index]);
-        });
-        Object.entries(result).map(([key, values]) => {
-          setItemData((prevData) => [
-            ...prevData,
-            { id: uuidv4(), data: values, field: key, isSelect: false },
-          ]);
+        const jsonData: ExcelRow[] = XLSX.utils.sheet_to_json(
+          worksheet
+        ) as ExcelRow[];
+        const groupedData = jsonData.reduce<Record<string, string[]>>(
+          (acc, obj) => {
+            Object.keys(obj).forEach((key) => {
+              if (!acc[key]) {
+                acc[key] = [];
+              }
+              acc[key].push(obj[key]);
+            });
+            return acc;
+          },
+          {}
+        );
+        Object.entries(groupedData).map(([value, data]) => {
+          const newItemData: ItemData = {
+            data,
+            field: value,
+            isSelect: false,
+            id: uuidv4(),
+          };
+          setItemData((prevData) => [...prevData, newItemData]);
         });
       }
     };
@@ -274,7 +290,7 @@ export const PDFPage = () => {
 
     const numPages = pdfjsDoc._pdfInfo.numPages;
 
-    const pageContentPromise: Promise<unknown>[] = [];
+    const pageContentPromise: Promise<TextContent>[] = [];
     for (let index = 0; index < numPages; index++) {
       pageContentPromise.push(getContentPage(pdfjsDoc, index + 1));
     }
@@ -373,7 +389,7 @@ export const PDFPage = () => {
           </StepContent>
         </Step>
         {/* Primer paso carga de archivo de datos*/}
-        <Step key={4} >
+        <Step key={4}>
           <StepLabel>Cargar archivo de datos</StepLabel>
           <StepContent>
             <Box>
