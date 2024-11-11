@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Checkbox,
+  CircularProgress,
   Collapse,
   Container,
   FormControl,
@@ -18,6 +19,7 @@ import {
   ListSubheader,
   MenuItem,
   Select,
+  SelectChangeEvent,
   Step,
   StepContent,
   StepLabel,
@@ -58,6 +60,12 @@ interface ItemData {
   field: string;
   data: string[];
   isSelect: boolean;
+}
+
+interface ItemMatch {
+  id?: string;
+  itemData: ItemData;
+  itemText: ItemText;
 }
 
 interface CustomListItemProps {
@@ -112,6 +120,61 @@ const CustomListItem: FC<CustomListItemProps> = ({ itemData, sendData }) => {
   );
 };
 
+interface CustomListMatchProps {
+  itemsData: ItemData[];
+  itemMatch: ItemMatch;
+}
+
+const CustomListMatch: FC<CustomListMatchProps> = ({
+  itemsData,
+  itemMatch,
+}) => {
+  const labelId = `checkbox-list-label-${itemMatch.id}`;
+  const initItemData: ItemData = {
+    data: [],
+    field: "",
+    isSelect: true,
+    id: "",
+  };
+  const [selectedItemData, setSelectedItemData] =
+    useState<ItemData>(initItemData);
+
+  const handleSelectChange = (event: SelectChangeEvent<string>) => {
+    const id = event.target.value;
+    const itemDataFind = itemsData.find((item) => item.id == id);
+    if (itemDataFind != undefined) {
+      setSelectedItemData(itemDataFind);
+      itemMatch.itemData = itemDataFind;
+    } else {
+      setSelectedItemData(initItemData);
+    }
+  };
+
+  return (
+    <ListItem key={labelId} role={undefined}>
+      <ListItemText id={labelId} primary={`${itemMatch.itemText.text}`} />
+      <FormControl fullWidth>
+        <InputLabel id="demo-simple-select-label">Campo de datos</InputLabel>
+        <Select
+          labelId="demo-simple-select-label"
+          id="demo-simple-select"
+          label="Campo de datos"
+          value={selectedItemData.id}
+          onChange={handleSelectChange}
+          displayEmpty
+        >
+          <MenuItem value={""}>Seleccione una opción</MenuItem>
+          {itemsData.map((item) => (
+            <MenuItem key={item.id} value={item.id}>
+              {item.field}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </ListItem>
+  );
+};
+
 export const PDFPage = () => {
   const [filePDF, setFilePDF] = useState<File>();
   const [fileExcel, setFileExcel] = useState<File>();
@@ -121,6 +184,8 @@ export const PDFPage = () => {
   const [itemsTextSelected, setItemsTextSelected] = useState<ItemText[]>([]);
   const [itemData, setItemData] = useState<ItemData[]>([]);
   const [itemDataSelected, setItemDataSelected] = useState<ItemData[]>([]);
+  const [itemsMatch, setItemsMatch] = useState<ItemMatch[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleAcceptData = () => {
     let updateItems: ItemData[] = [];
@@ -130,6 +195,19 @@ export const PDFPage = () => {
       }
     });
     setItemDataSelected(updateItems);
+    itemsTextSelected.map((item) => {
+      const newItemMatch: ItemMatch = {
+        id: uuidv4(),
+        itemText: item,
+        itemData: {
+          data: [],
+          field: "",
+          isSelect: true,
+          id: uuidv4(),
+        },
+      };
+      setItemsMatch((prevItems) => [...prevItems, newItemMatch]);
+    });
     handleNext();
   };
 
@@ -248,6 +326,7 @@ export const PDFPage = () => {
   };
 
   const loadExcel = async () => {
+    setIsLoading(true)
     const reader = new FileReader();
     reader.onload = (e) => {
       const arrayBuffer = e.target?.result;
@@ -282,9 +361,12 @@ export const PDFPage = () => {
       }
     };
     reader.readAsArrayBuffer(fileExcel!);
+    setIsLoading(false)
+    handleNext()
   };
 
   const loadPDF = async () => {
+    setIsLoading(true);
     const loadingTask = getDocument(URL.createObjectURL(filePDF!));
     const pdfjsDoc = await loadingTask.promise;
 
@@ -296,6 +378,8 @@ export const PDFPage = () => {
     }
     const pageContent = await Promise.all(pageContentPromise);
     await underlineText(pageContent);
+    setIsLoading(false);
+    handleNext();
   };
   return (
     <Container>
@@ -304,19 +388,20 @@ export const PDFPage = () => {
         <Step key={1}>
           <StepLabel>Cargar archivo</StepLabel>
           <StepContent>
+            {isLoading ? (
+              <CircularProgress size="3rem" />
+            ) : (
+              <Box>
+                <input
+                  type="file"
+                  className="m-2"
+                  onChange={onFileInputChangePDF}
+                  accept=".pdf"
+                />
+              </Box>
+            )}
             <Box>
-              <input
-                type="file"
-                className="m-2"
-                onChange={onFileInputChangePDF}
-                accept=".pdf"
-              />
-              <Button variant="contained" color="error" onClick={loadPDF}>
-                Cargar
-              </Button>
-            </Box>
-            <Box>
-              <Button variant="contained" onClick={handleNext}>
+              <Button variant="contained" onClick={loadPDF}>
                 Siguiente
               </Button>
             </Box>
@@ -392,19 +477,20 @@ export const PDFPage = () => {
         <Step key={4}>
           <StepLabel>Cargar archivo de datos</StepLabel>
           <StepContent>
+            {isLoading ? (
+              <CircularProgress size="3rem" />
+            ) : (
+              <Box>
+                <input
+                  type="file"
+                  className="m-2"
+                  onChange={onFileInputChangeExcel}
+                  accept=".xlsx"
+                />
+              </Box>
+            )}
             <Box>
-              <input
-                type="file"
-                className="m-2"
-                onChange={onFileInputChangeExcel}
-                accept=".xlsx"
-              />
-              <Button variant="contained" color="error" onClick={loadExcel}>
-                Cargar
-              </Button>
-            </Box>
-            <Box>
-              <Button variant="contained" onClick={handleNext}>
+              <Button variant="contained" onClick={loadExcel}>
                 Siguiente
               </Button>
             </Box>
@@ -442,28 +528,13 @@ export const PDFPage = () => {
                   </ListSubheader>
                 }
               >
-                {itemsTextSelected.map((item) => {
-                  const labelId = `checkbox-list-label-${item.id}`;
-                  return (
-                    <ListItem key={item.id} role={undefined}>
-                      <ListItemText id={labelId} primary={`${item.text}`} />
-                      <FormControl fullWidth>
-                        <InputLabel id="demo-simple-select-label">
-                          Campo de datos
-                        </InputLabel>
-                        <Select
-                          labelId="demo-simple-select-label"
-                          id="demo-simple-select"
-                          label="Campo de datos"
-                        >
-                          {itemDataSelected.map((item) => (
-                            <MenuItem value={item.id}>{item.field}</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </ListItem>
-                  );
-                })}
+                {itemsMatch.map((item) => (
+                  <CustomListMatch
+                    key={item.id}
+                    itemMatch={item}
+                    itemsData={itemDataSelected}
+                  />
+                ))}
               </List>
             </Box>
             <Box>
