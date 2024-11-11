@@ -53,6 +53,7 @@ interface ItemText {
   font: Font;
   field: string;
   isSelect: boolean;
+  page:number;
 }
 
 interface ItemData {
@@ -187,6 +188,32 @@ export const PDFPage = () => {
   const [itemsMatch, setItemsMatch] = useState<ItemMatch[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  const changeDataFromPDF=async ()=>{
+    const pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
+    itemsMatch.map(async (item)=>{
+      const page= pdfLibDoc.getPage(item.itemText.page);
+      const { itemText } =item
+      page.drawRectangle({
+        x: itemText.x,
+        y: itemText.y-5,
+        width: itemText.width,
+        height: itemText.height,
+        color: rgb(1, 1, 1),
+      });
+      page.drawText("Texto prueba",{
+        x:itemText.x,
+        y:itemText.y,
+        size:itemText.font.size,
+        // font:await pdfLibDoc.embedFont(itemText.font.name),
+        color:rgb(0,0,0)
+      })
+    })
+    const pdfBytes = await pdfLibDoc!.save();
+    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl,"_blank");
+  }
+
   const handleAcceptData = () => {
     let updateItems: ItemData[] = [];
     itemData.map((item) => {
@@ -278,15 +305,15 @@ export const PDFPage = () => {
   const underlineText = async (pageContent: TextContent[]) => {
     const pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
     pageContent.map((page, index) => {
-      const pdfLibPage = pdfLibDoc.getPage(index);
-      buildText(page);
+      const pdfLibPage = pdfLibDoc!.getPage(index);
+      buildText(page,index);
       page.items.map((item) => {
         const { width, height, transform } = item as TextItem;
         const x = transform[4];
         const y = transform[5];
         pdfLibPage.drawRectangle({
           x: x,
-          y: y,
+          y: y-5,
           width: width,
           height: height,
           color: rgb(1, 1, 0),
@@ -294,13 +321,13 @@ export const PDFPage = () => {
         });
       });
     });
-    const pdfBytes = await pdfLibDoc.save();
+    const pdfBytes = await pdfLibDoc!.save();
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     setPdfUrl(url);
   };
 
-  const buildText = (page: TextContent) => {
+  const buildText = (page: TextContent,pageNumber:number) => {
     const { items, styles } = page;
     items.map((item) => {
       const itemText = item as TextItem;
@@ -318,6 +345,7 @@ export const PDFPage = () => {
         },
         field: "",
         isSelect: false,
+        page:pageNumber
       };
       if (itemText.str != "") {
         setItemsText((prevItems) => [...prevItems, newItem]);
@@ -538,7 +566,7 @@ export const PDFPage = () => {
               </List>
             </Box>
             <Box>
-              <Button variant="contained" onClick={handleNext}>
+              <Button variant="contained" onClick={changeDataFromPDF}>
                 Siguiente
               </Button>
             </Box>
