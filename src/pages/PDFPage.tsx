@@ -10,7 +10,7 @@ import {
   Collapse,
   Container,
   FormControl,
-  InputLabel,
+  // InputLabel,
   List,
   ListItem,
   ListItemButton,
@@ -53,7 +53,7 @@ interface ItemText {
   font: Font;
   field: string;
   isSelect: boolean;
-  page:number;
+  page: number;
 }
 
 interface ItemData {
@@ -126,6 +126,10 @@ interface CustomListMatchProps {
   itemMatch: ItemMatch;
 }
 
+type TableRow = ItemText | string;
+
+type Table = TableRow[][];
+
 const CustomListMatch: FC<CustomListMatchProps> = ({
   itemsData,
   itemMatch,
@@ -148,6 +152,7 @@ const CustomListMatch: FC<CustomListMatchProps> = ({
       itemMatch.itemData = itemDataFind;
     } else {
       setSelectedItemData(initItemData);
+      itemMatch.itemData = initItemData;
     }
   };
 
@@ -155,8 +160,9 @@ const CustomListMatch: FC<CustomListMatchProps> = ({
     <ListItem key={labelId} role={undefined}>
       <ListItemText id={labelId} primary={`${itemMatch.itemText.text}`} />
       <FormControl fullWidth>
-        <InputLabel id="demo-simple-select-label">Campo de datos</InputLabel>
+        {/* <InputLabel id="demo-simple-select-label">Campo de datos</InputLabel> */}
         <Select
+          variant="outlined"
           labelId="demo-simple-select-label"
           id="demo-simple-select"
           label="Campo de datos"
@@ -188,31 +194,84 @@ export const PDFPage = () => {
   const [itemsMatch, setItemsMatch] = useState<ItemMatch[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const changeDataFromPDF=async ()=>{
-    const pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
-    itemsMatch.map(async (item)=>{
-      const page= pdfLibDoc.getPage(item.itemText.page);
-      const { itemText } =item
-      page.drawRectangle({
-        x: itemText.x,
-        y: itemText.y-5,
-        width: itemText.width,
-        height: itemText.height,
-        color: rgb(1, 1, 1),
-      });
-      page.drawText("Texto prueba",{
-        x:itemText.x,
-        y:itemText.y,
-        size:itemText.font.size,
-        // font:await pdfLibDoc.embedFont(itemText.font.name),
-        color:rgb(0,0,0)
-      })
-    })
-    const pdfBytes = await pdfLibDoc!.save();
-    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    window.open(pdfUrl,"_blank");
-  }
+  const changeDataFromPDF = async () => {
+    const table = buildTable();
+    const headers = table[0];
+    let pdfLibDoc;
+    let page;
+    for (let i = 1; i < table.length; i++) {
+      const row=table[i]
+      for (let j = 0; j < headers.length; j++) {
+        const itemText: ItemText = headers[j] as ItemText;
+        if (j == 0) {
+          pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
+          page = pdfLibDoc.getPage(itemText.page);
+        }
+        page!.drawRectangle({
+          x: itemText.x,
+          y: itemText.y - 5,
+          width: itemText.width,
+          height: itemText.height,
+          color: rgb(1, 1, 1),
+        });
+        page!.drawText(row[j].toString(), {
+          x: itemText.x,
+          y: itemText.y,
+          size: itemText.font.size,
+          // font:await pdfLibDoc.embedFont(itemText.font.name),
+          color: rgb(0, 0, 0),
+        });
+        if(j==table.length){
+          console.log("aca");
+          const pdfBytes = await pdfLibDoc!.save();
+          const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          window.open(pdfUrl, "_blank");
+        }else{
+          console.log("noo aca");
+          
+        }
+      }
+    }
+    // itemsMatch.map(async (item) => {
+    //   item.itemData.data.map(async (itemData) => {
+    //     const pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
+    //     const page = pdfLibDoc.getPage(item.itemText.page);
+    //     const { itemText } = item;
+    //     page.drawRectangle({
+    //       x: itemText.x,
+    //       y: itemText.y - 5,
+    //       width: itemText.width,
+    //       height: itemText.height,
+    //       color: rgb(1, 1, 1),
+    //     });
+    //     page.drawText(itemData, {
+    //       x: itemText.x,
+    //       y: itemText.y,
+    //       size: itemText.font.size,
+    //       // font:await pdfLibDoc.embedFont(itemText.font.name),
+    //       color: rgb(0, 0, 0),
+    //     });
+    //     const pdfBytes = await pdfLibDoc.save();
+    //     const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+    //     const pdfUrl = URL.createObjectURL(pdfBlob);
+    //     window.open(pdfUrl, "_blank");
+    //   });
+    // });
+  };
+
+  const buildTable = () => {
+    const headers = itemsMatch.map((item) => item.itemText);
+    const numRows = Math.max(
+      ...itemsMatch.map((item) => item.itemData.data.length)
+    );
+    const table: Table = [headers];
+    for (let i = 0; i < numRows; i++) {
+      const row = itemsMatch.map((item) => item.itemData.data[i] || "");
+      table.push(row);
+    }
+    return table;
+  };
 
   const handleAcceptData = () => {
     let updateItems: ItemData[] = [];
@@ -277,9 +336,9 @@ export const PDFPage = () => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
   };
 
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
+  // const handleBack = () => {
+  //   setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  // };
 
   const onFileInputChangeExcel = (event: ChangeEvent<HTMLInputElement>) => {
     const target = event.target;
@@ -306,14 +365,14 @@ export const PDFPage = () => {
     const pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
     pageContent.map((page, index) => {
       const pdfLibPage = pdfLibDoc!.getPage(index);
-      buildText(page,index);
+      buildText(page, index);
       page.items.map((item) => {
         const { width, height, transform } = item as TextItem;
         const x = transform[4];
         const y = transform[5];
         pdfLibPage.drawRectangle({
           x: x,
-          y: y-5,
+          y: y - 5,
           width: width,
           height: height,
           color: rgb(1, 1, 0),
@@ -327,7 +386,7 @@ export const PDFPage = () => {
     setPdfUrl(url);
   };
 
-  const buildText = (page: TextContent,pageNumber:number) => {
+  const buildText = (page: TextContent, pageNumber: number) => {
     const { items, styles } = page;
     items.map((item) => {
       const itemText = item as TextItem;
@@ -345,7 +404,7 @@ export const PDFPage = () => {
         },
         field: "",
         isSelect: false,
-        page:pageNumber
+        page: pageNumber,
       };
       if (itemText.str != "") {
         setItemsText((prevItems) => [...prevItems, newItem]);
@@ -354,7 +413,7 @@ export const PDFPage = () => {
   };
 
   const loadExcel = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     const reader = new FileReader();
     reader.onload = (e) => {
       const arrayBuffer = e.target?.result;
@@ -389,8 +448,8 @@ export const PDFPage = () => {
       }
     };
     reader.readAsArrayBuffer(fileExcel!);
-    setIsLoading(false)
-    handleNext()
+    setIsLoading(false);
+    handleNext();
   };
 
   const loadPDF = async () => {
@@ -494,9 +553,6 @@ export const PDFPage = () => {
             <Box>
               <Button variant="contained" onClick={handleAcceptText}>
                 Siguiente
-              </Button>
-              <Button variant="contained" onClick={handleBack}>
-                Atras
               </Button>
             </Box>
           </StepContent>
