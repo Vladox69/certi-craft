@@ -200,13 +200,11 @@ export const PDFPage = () => {
     let pdfLibDoc;
     let page;
     for (let i = 1; i < table.length; i++) {
-      const row=table[i]
+      const row = table[i];
+      pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
       for (let j = 0; j < headers.length; j++) {
         const itemText: ItemText = headers[j] as ItemText;
-        if (j == 0) {
-          pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
-          page = pdfLibDoc.getPage(itemText.page);
-        }
+        page = pdfLibDoc.getPage(itemText.page);
         page!.drawRectangle({
           x: itemText.x,
           y: itemText.y - 5,
@@ -221,17 +219,11 @@ export const PDFPage = () => {
           // font:await pdfLibDoc.embedFont(itemText.font.name),
           color: rgb(0, 0, 0),
         });
-        if(j==table.length){
-          console.log("aca");
-          const pdfBytes = await pdfLibDoc!.save();
-          const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
-          const pdfUrl = URL.createObjectURL(pdfBlob);
-          window.open(pdfUrl, "_blank");
-        }else{
-          console.log("noo aca");
-          
-        }
       }
+      const pdfBytes = await pdfLibDoc!.save();
+      const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, "_blank");
     }
     // itemsMatch.map(async (item) => {
     //   item.itemData.data.map(async (itemData) => {
