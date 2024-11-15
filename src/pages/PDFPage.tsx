@@ -2,6 +2,8 @@ import { ChangeEvent, FC, useState } from "react";
 import "./PDFPage.css";
 import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from "pdfjs-dist";
 import { PDFDocument, rgb } from "pdf-lib";
+import Swal from 'sweetalert2'
+import withReactContent from 'sweetalert2-react-content'
 import {
   Box,
   Button,
@@ -10,7 +12,7 @@ import {
   Collapse,
   Container,
   FormControl,
-  // InputLabel,
+  FormHelperText,
   List,
   ListItem,
   ListItemButton,
@@ -156,10 +158,18 @@ const CustomListMatch: FC<CustomListMatchProps> = ({
     }
   };
 
+  const validateMatch = () => {
+    return selectedItemData.id == "";
+  };
+
   return (
     <ListItem key={labelId} role={undefined}>
-      <ListItemText id={labelId} primary={`${itemMatch.itemText.text}`} />
-      <FormControl fullWidth>
+      <ListItemText
+        id={labelId}
+        primary={`${itemMatch.itemText.field}`}
+        className="me-4"
+      />
+      <FormControl fullWidth error={validateMatch()}>
         {/* <InputLabel id="demo-simple-select-label">Campo de datos</InputLabel> */}
         <Select
           variant="outlined"
@@ -177,6 +187,11 @@ const CustomListMatch: FC<CustomListMatchProps> = ({
             </MenuItem>
           ))}
         </Select>
+        {validateMatch() && (
+          <FormHelperText>
+            Se debe emparejar con un campo de datos
+          </FormHelperText>
+        )}
       </FormControl>
     </ListItem>
   );
@@ -193,6 +208,7 @@ export const PDFPage = () => {
   const [itemDataSelected, setItemDataSelected] = useState<ItemData[]>([]);
   const [itemsMatch, setItemsMatch] = useState<ItemMatch[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const MySwal = withReactContent(Swal)
 
   const changeDataFromPDF = async () => {
     const table = buildTable();
@@ -225,31 +241,6 @@ export const PDFPage = () => {
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, "_blank");
     }
-    // itemsMatch.map(async (item) => {
-    //   item.itemData.data.map(async (itemData) => {
-    //     const pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
-    //     const page = pdfLibDoc.getPage(item.itemText.page);
-    //     const { itemText } = item;
-    //     page.drawRectangle({
-    //       x: itemText.x,
-    //       y: itemText.y - 5,
-    //       width: itemText.width,
-    //       height: itemText.height,
-    //       color: rgb(1, 1, 1),
-    //     });
-    //     page.drawText(itemData, {
-    //       x: itemText.x,
-    //       y: itemText.y,
-    //       size: itemText.font.size,
-    //       // font:await pdfLibDoc.embedFont(itemText.font.name),
-    //       color: rgb(0, 0, 0),
-    //     });
-    //     const pdfBytes = await pdfLibDoc.save();
-    //     const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
-    //     const pdfUrl = URL.createObjectURL(pdfBlob);
-    //     window.open(pdfUrl, "_blank");
-    //   });
-    // });
   };
 
   const buildTable = () => {
@@ -460,6 +451,35 @@ export const PDFPage = () => {
     setIsLoading(false);
     handleNext();
   };
+
+  const validateTextItem = (item: ItemText) => {
+    return !!item.isSelect && item.field === "";
+  };
+
+  const validateTextItemSelected = () => {
+    const hasSelectedItems = itemsText.some((item) => item.isSelect);
+    const hasErrors = itemsText.some((item) => validateTextItem(item));
+    return hasErrors || !hasSelectedItems;
+  };
+
+  const validateDataItemSelected = () => {
+    const hasSelectedData = itemData.some((item) => item.isSelect);
+    return !hasSelectedData;
+  };
+
+  const openModal=()=>{
+    MySwal.fire("Error","Debe emparejar los campos de texto con los campos de datos","error")
+  }
+
+  const validateMatchItem = () => {
+    const hasMatchItem = itemsMatch.some((item) => item.itemData.id === "");
+    if (!hasMatchItem) {
+      changeDataFromPDF();
+    } else {
+      openModal()
+    }
+  };
+
   return (
     <Container>
       <Stepper activeStep={activeStep} orientation="vertical">
@@ -480,7 +500,11 @@ export const PDFPage = () => {
               </Box>
             )}
             <Box>
-              <Button variant="contained" onClick={loadPDF}>
+              <Button
+                variant="contained"
+                onClick={loadPDF}
+                disabled={filePDF == null}
+              >
                 Siguiente
               </Button>
             </Box>
@@ -535,6 +559,12 @@ export const PDFPage = () => {
                           onChange={(e) =>
                             handleTextFieldChange(item.id!, e.target.value)
                           }
+                          error={validateTextItem(item)}
+                          helperText={
+                            validateTextItem(item)
+                              ? "Debe llenar el campo seleccionado"
+                              : ""
+                          }
                         />
                       </ListItemButton>
                     </ListItem>
@@ -543,7 +573,11 @@ export const PDFPage = () => {
               </List>
             </Box>
             <Box>
-              <Button variant="contained" onClick={handleAcceptText}>
+              <Button
+                variant="contained"
+                onClick={handleAcceptText}
+                disabled={validateTextItemSelected()}
+              >
                 Siguiente
               </Button>
             </Box>
@@ -566,7 +600,11 @@ export const PDFPage = () => {
               </Box>
             )}
             <Box>
-              <Button variant="contained" onClick={loadExcel}>
+              <Button
+                variant="contained"
+                onClick={loadExcel}
+                disabled={fileExcel == null}
+              >
                 Siguiente
               </Button>
             </Box>
@@ -587,7 +625,11 @@ export const PDFPage = () => {
               </List>
             </Box>
             <Box>
-              <Button variant="contained" onClick={handleAcceptData}>
+              <Button
+                variant="contained"
+                onClick={handleAcceptData}
+                disabled={validateDataItemSelected()}
+              >
                 Siguiente
               </Button>
             </Box>
@@ -614,13 +656,14 @@ export const PDFPage = () => {
               </List>
             </Box>
             <Box>
-              <Button variant="contained" onClick={changeDataFromPDF}>
+              <Button variant="contained" onClick={validateMatchItem}>
                 Siguiente
               </Button>
             </Box>
           </StepContent>
         </Step>
       </Stepper>
+ 
     </Container>
   );
 };
