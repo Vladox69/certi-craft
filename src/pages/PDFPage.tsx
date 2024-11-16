@@ -1,9 +1,9 @@
 import { ChangeEvent, FC, useState } from "react";
 import "./PDFPage.css";
 import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from "pdfjs-dist";
-import { PDFDocument, rgb } from "pdf-lib";
-import Swal from 'sweetalert2'
-import withReactContent from 'sweetalert2-react-content'
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 import {
   Box,
   Button,
@@ -36,7 +36,7 @@ import {
   faPlusSquare,
 } from "@fortawesome/free-regular-svg-icons";
 import JSZip from "jszip";
-import { saveAs } from "file-saver"; 
+import { saveAs } from "file-saver";
 import { TextContent, TextItem } from "pdfjs-dist/types/src/display/api";
 GlobalWorkerOptions.workerSrc =
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs";
@@ -189,6 +189,22 @@ const CustomListMatch: FC<CustomListMatchProps> = ({
             </MenuItem>
           ))}
         </Select>
+        <Select variant="outlined">
+          {Object.entries(StandardFonts).map(([key, value]) => (
+            <MenuItem key={key} value={value}>
+              {value}
+            </MenuItem>
+          ))}
+        </Select>
+
+        <TextField
+          id="outline-number"
+          label="Tamaño"
+          type="number"
+          variant="outlined"
+          slotProps={{ htmlInput: { min: 1 } }}
+          value={itemMatch.itemText.font.size}
+        />
         {validateMatch() && (
           <FormHelperText>
             Se debe emparejar con un campo de datos
@@ -210,7 +226,7 @@ export const PDFPage = () => {
   const [itemDataSelected, setItemDataSelected] = useState<ItemData[]>([]);
   const [itemsMatch, setItemsMatch] = useState<ItemMatch[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const MySwal = withReactContent(Swal)
+  const MySwal = withReactContent(Swal);
 
   const changeDataFromPDF = async () => {
     const table = buildTable();
@@ -245,7 +261,7 @@ export const PDFPage = () => {
     }
     zip.generateAsync({ type: "blob" }).then((content) => {
       saveAs(content, "documents.zip"); // Descargar el archivo ZIP
-    })
+    });
   };
 
   const buildTable = () => {
@@ -375,10 +391,9 @@ export const PDFPage = () => {
   };
 
   const buildText = (page: TextContent, pageNumber: number) => {
-    const { items, styles } = page;
+    const { items } = page;
     items.map((item) => {
       const itemText = item as TextItem;
-      const fontProps = styles[itemText.fontName];
       const newItem: ItemText = {
         id: uuidv4(),
         text: itemText.str,
@@ -387,7 +402,7 @@ export const PDFPage = () => {
         x: itemText.transform[4],
         y: itemText.transform[5],
         font: {
-          name: fontProps.fontFamily,
+          name: StandardFonts.Helvetica,
           size: Math.abs(itemText.transform[3]),
         },
         field: "",
@@ -472,16 +487,20 @@ export const PDFPage = () => {
     return !hasSelectedData;
   };
 
-  const openModal=()=>{
-    MySwal.fire("Error","Debe emparejar los campos de texto con los campos de datos","error")
-  }
+  const openModal = () => {
+    MySwal.fire(
+      "Error",
+      "Debe emparejar los campos de texto con los campos de datos",
+      "error"
+    );
+  };
 
   const validateMatchItem = () => {
     const hasMatchItem = itemsMatch.some((item) => item.itemData.id === "");
     if (!hasMatchItem) {
       changeDataFromPDF();
     } else {
-      openModal()
+      openModal();
     }
   };
 
@@ -668,7 +687,6 @@ export const PDFPage = () => {
           </StepContent>
         </Step>
       </Stepper>
- 
     </Container>
   );
 };
