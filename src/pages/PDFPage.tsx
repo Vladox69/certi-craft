@@ -35,6 +35,8 @@ import {
   faMinusSquare,
   faPlusSquare,
 } from "@fortawesome/free-regular-svg-icons";
+import JSZip from "jszip";
+import { saveAs } from "file-saver"; 
 import { TextContent, TextItem } from "pdfjs-dist/types/src/display/api";
 GlobalWorkerOptions.workerSrc =
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs";
@@ -213,6 +215,7 @@ export const PDFPage = () => {
   const changeDataFromPDF = async () => {
     const table = buildTable();
     const headers = table[0];
+    const zip = new JSZip();
     let pdfLibDoc;
     let page;
     for (let i = 1; i < table.length; i++) {
@@ -237,10 +240,12 @@ export const PDFPage = () => {
         });
       }
       const pdfBytes = await pdfLibDoc!.save();
-      const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      window.open(pdfUrl, "_blank");
+      const pdfName = `document_${i}.pdf`;
+      zip.file(pdfName, pdfBytes);
     }
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      saveAs(content, "documents.zip"); // Descargar el archivo ZIP
+    })
   };
 
   const buildTable = () => {
