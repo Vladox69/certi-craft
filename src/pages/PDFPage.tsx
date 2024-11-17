@@ -28,6 +28,7 @@ import {
   Stepper,
   TextField,
 } from "@mui/material";
+import Grid from "@mui/material/Grid2";
 import { v4 as uuidv4 } from "uuid";
 import * as XLSX from "xlsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -145,8 +146,38 @@ const CustomListMatch: FC<CustomListMatchProps> = ({
     isSelect: true,
     id: "",
   };
+  const initFont: Font = {
+    name: StandardFonts.Helvetica,
+    size: 12,
+  };
   const [selectedItemData, setSelectedItemData] =
     useState<ItemData>(initItemData);
+
+  const [selectedFont, setSelectedFont] = useState<Font>(initFont);
+
+  const handleSelectFont = (event: SelectChangeEvent<string>) => {
+    const font = event.target.value;
+    itemMatch.itemText.font = {
+      ...itemMatch.itemText.font,
+      name: font,
+    };
+    setSelectedFont({
+      name: font,
+      size: selectedFont.size,
+    });
+  };
+
+  const onChangeSize = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const size = event.target.value;
+    itemMatch.itemText.font = {
+      ...itemMatch.itemText.font,
+      size: Number(size),
+    };
+    setSelectedFont({
+      name: selectedFont.name,
+      size: Number(size),
+    });
+  };
 
   const handleSelectChange = (event: SelectChangeEvent<string>) => {
     const id = event.target.value;
@@ -171,46 +202,65 @@ const CustomListMatch: FC<CustomListMatchProps> = ({
         primary={`${itemMatch.itemText.field}`}
         className="me-4"
       />
-      <FormControl fullWidth error={validateMatch()}>
-        {/* <InputLabel id="demo-simple-select-label">Campo de datos</InputLabel> */}
-        <Select
-          variant="outlined"
-          labelId="demo-simple-select-label"
-          id="demo-simple-select"
-          label="Campo de datos"
-          value={selectedItemData.id}
-          onChange={handleSelectChange}
-          displayEmpty
-        >
-          <MenuItem value={""}>Seleccione una opción</MenuItem>
-          {itemsData.map((item) => (
-            <MenuItem key={item.id} value={item.id}>
-              {item.field}
-            </MenuItem>
-          ))}
-        </Select>
-        <Select variant="outlined">
-          {Object.entries(StandardFonts).map(([key, value]) => (
-            <MenuItem key={key} value={value}>
-              {value}
-            </MenuItem>
-          ))}
-        </Select>
-
-        <TextField
-          id="outline-number"
-          label="Tamaño"
-          type="number"
-          variant="outlined"
-          slotProps={{ htmlInput: { min: 1 } }}
-          value={itemMatch.itemText.font.size}
-        />
-        {validateMatch() && (
-          <FormHelperText>
-            Se debe emparejar con un campo de datos
-          </FormHelperText>
-        )}
-      </FormControl>
+      {/* <InputLabel id="demo-simple-select-label">Campo de datos</InputLabel> */}
+      <Grid container spacing={1} sx={{width:"100%"}} >
+        <Grid size={4}>
+          <FormControl fullWidth error={validateMatch()}>
+            <Select
+              variant="outlined"
+              labelId="demo-simple-select-label"
+              id="demo-simple-select"
+              label="Campo de datos"
+              value={selectedItemData.id}
+              onChange={handleSelectChange}
+              displayEmpty
+              sx={{ width: "100%" }}
+            >
+              <MenuItem value={""}>Seleccione una opción</MenuItem>
+              {itemsData.map((item) => (
+                <MenuItem key={item.id} value={item.id}>
+                  {item.field}
+                </MenuItem>
+              ))}
+            </Select>
+            {validateMatch() && (
+              <FormHelperText>
+                Se debe emparejar con un campo de datos
+              </FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
+        <Grid size={4}>
+          <Select
+            variant="outlined"
+            labelId="select-font"
+            id="select-font"
+            onChange={handleSelectFont}
+            label="Fuente"
+            displayEmpty
+            value={selectedFont.name}
+            sx={{ width: "100%" }}
+          >
+            {Object.entries(StandardFonts).map(([key, value]) => (
+              <MenuItem key={key} value={key}>
+                {value}
+              </MenuItem>
+            ))}
+          </Select>
+        </Grid>
+        <Grid size={4}>
+          <TextField
+            id="outline-number"
+            label="Tamaño"
+            type="number"
+            variant="outlined"
+            slotProps={{ htmlInput: { min: 1 } }}
+            value={itemMatch.itemText.font.size}
+            onChange={onChangeSize}
+            sx={{ width: "100%" }}
+          />
+        </Grid>
+      </Grid>
     </ListItem>
   );
 };
@@ -403,7 +453,7 @@ export const PDFPage = () => {
         y: itemText.transform[5],
         font: {
           name: StandardFonts.Helvetica,
-          size: Math.abs(itemText.transform[3]),
+          size: 12,
         },
         field: "",
         isSelect: false,
