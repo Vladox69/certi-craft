@@ -289,6 +289,8 @@ export const PDFPage = () => {
       pdfLibDoc = await PDFDocument.load(await filePDF!.arrayBuffer());
       for (let j = 0; j < headers.length; j++) {
         const itemText: ItemText = headers[j] as ItemText;
+        const fontName = itemText.font.name as keyof typeof StandardFonts;
+        const font = await pdfLibDoc.embedFont(StandardFonts[fontName])
         page = pdfLibDoc.getPage(itemText.page);
         page!.drawRectangle({
           x: itemText.x,
@@ -301,7 +303,7 @@ export const PDFPage = () => {
           x: itemText.x,
           y: itemText.y,
           size: itemText.font.size,
-          // font:await pdfLibDoc.embedFont(itemText.font.name),
+          font:font,
           color: rgb(0, 0, 0),
         });
       }
@@ -453,7 +455,7 @@ export const PDFPage = () => {
         y: itemText.transform[5],
         font: {
           name: StandardFonts.Helvetica,
-          size: 12,
+          size: Math.round(itemText.transform[3]),
         },
         field: "",
         isSelect: false,
@@ -548,6 +550,7 @@ export const PDFPage = () => {
   const validateMatchItem = () => {
     const hasMatchItem = itemsMatch.some((item) => item.itemData.id === "");
     if (!hasMatchItem) {
+      // console.log(itemsMatch);
       changeDataFromPDF();
     } else {
       openModal();
